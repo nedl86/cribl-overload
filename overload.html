@@ -444,6 +444,81 @@
     50%     { box-shadow: 0 0 22px 6px rgba(255,255,255,0.55); }
   }
   .btn-tutorial-flash { animation: btnTutorialFlash 0.5s ease-in-out 3; }
+
+  /* Combo milestone burst — sits behind cards (z-index 2) */
+  #combo-burst {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none; z-index: 2;
+    opacity: 0;
+  }
+  #combo-burst.show { animation: comboBurst 0.8s ease-out forwards; }
+  #combo-burst-text {
+    font-size: 52px; font-weight: 900;
+    color: var(--orange);
+    text-shadow: 0 0 40px rgba(249,115,22,0.8), 0 0 80px rgba(249,115,22,0.4);
+    letter-spacing: 3px;
+  }
+  @keyframes comboBurst {
+    0%   { opacity: 0; transform: scale(0.5); }
+    30%  { opacity: 0.85; transform: scale(1.15); }
+    60%  { opacity: 0.6; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.9); }
+  }
+
+  /* Near-miss card flash */
+  @keyframes nearMissFlash {
+    0%,100% { box-shadow: 0 0 12px rgba(239,68,68,0.3); border-color: inherit; }
+    50%     { box-shadow: 0 0 28px rgba(239,68,68,0.95); border-color: #ef4444 !important; }
+  }
+  .card.near-miss { animation: nearMissFlash 0.35s ease-in-out infinite !important; }
+
+  /* Card spawn scale-in */
+  @keyframes cardSpawnIn {
+    0%   { transform: scale(0) rotate(-8deg); opacity: 0; }
+    70%  { transform: scale(1.1) rotate(2deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+  .card.spawning { animation: cardSpawnIn 0.18s ease-out forwards; }
+
+  /* Mute button */
+  #btn-mute {
+    background: transparent; border: 1px solid #1e2a40;
+    border-radius: 10px; color: #3b506e;
+    font-size: 16px; padding: 8px 10px; cursor: pointer;
+    font-family: inherit; flex-shrink: 0;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  #btn-mute:active { border-color: #4a6080; color: #94a3b8; }
+
+  /* Level complete breakdown */
+  .levelup-breakdown {
+    display: flex; flex-direction: column; gap: 6px;
+    width: 100%; max-width: 280px;
+    background: #0d1220; border: 1px solid #1e2a40;
+    border-radius: 12px; padding: 12px 16px;
+    font-size: 12px;
+  }
+  .lbd-row {
+    display: flex; justify-content: space-between; align-items: center;
+    color: #94a3b8;
+  }
+  .lbd-row .lbd-val { font-weight: bold; color: #e2e8f0; }
+  .lbd-row .lbd-val.good { color: var(--green); }
+  .lbd-row .lbd-val.warn { color: var(--orange); }
+  .lbd-row .lbd-val.bad  { color: var(--red); }
+
+  /* Life regain popup */
+  @keyframes lifeRegain {
+    0%   { opacity: 0; transform: translateY(20px) scale(0.8); }
+    40%  { opacity: 1; transform: translateY(-10px) scale(1.2); }
+    100% { opacity: 0; transform: translateY(-40px) scale(1); }
+  }
+  .life-regain-popup {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    font-size: 28px; pointer-events: none; z-index: 25;
+    animation: lifeRegain 1.2s ease-out forwards;
+  }
 </style>
 </head>
 <body>
@@ -528,8 +603,9 @@
   <!-- GAME SCREEN -->
   <div id="screen-game" class="screen">
     <div id="top-bar">
-      <div style="display:flex;align-items:center;gap:8px;min-width:90px;">
+      <div style="display:flex;align-items:center;gap:6px;min-width:90px;">
         <button class="btn-home" id="btn-home-game" title="Back to start">🏠</button>
+        <button id="btn-mute" title="Toggle sound">🔊</button>
         <div id="score-display">0</div>
       </div>
       <div id="level-display">
@@ -543,6 +619,7 @@
       <div id="miss-flash"></div>
       <div id="storm-overlay"></div>
       <div id="slowmo-overlay"></div>
+      <div id="combo-burst"><div id="combo-burst-text"></div></div>
       <!-- agent column overlays injected here by JS -->
     </div>
     <div id="bottom-bar">
@@ -570,6 +647,12 @@
     <div class="levelup-text" id="levelup-text">LEVEL 1 ✓</div>
     <div class="levelup-sub">Level complete</div>
     <div class="levelup-score" id="levelup-score">+0</div>
+    <div class="levelup-breakdown" id="levelup-breakdown">
+      <div class="lbd-row"><span>Correct</span><span class="lbd-val good" id="lbd-correct">—</span></div>
+      <div class="lbd-row"><span>Missed threats</span><span class="lbd-val bad" id="lbd-missed">—</span></div>
+      <div class="lbd-row"><span>False alarms</span><span class="lbd-val warn" id="lbd-false">—</span></div>
+      <div class="lbd-row"><span>Accuracy</span><span class="lbd-val" id="lbd-accuracy">—</span></div>
+    </div>
   </div>
 
   <!-- GAME OVER SCREEN -->
@@ -648,6 +731,80 @@ const slowmoOverlay = document.getElementById('slowmo-overlay');
 const missFlash = document.getElementById('miss-flash');
 
 // ─────────────────────────────────────────────
+// SOUND ENGINE
+// ─────────────────────────────────────────────
+let audioCtx = null;
+let soundEnabled = true;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playTone(freq, type, duration, gainVal, fadeOut = true) {
+  if (!soundEnabled) return;
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    gain.gain.setValueAtTime(gainVal, ctx.currentTime);
+    if (fadeOut) gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration);
+  } catch(e) {}
+}
+
+function sfxDismiss()     { playTone(440, 'sine', 0.12, 0.18); }
+function sfxInvestigate() { playTone(660, 'sine', 0.12, 0.18); }
+function sfxAgentDismiss()     { playTone(380, 'sine', 0.1, 0.12); }
+function sfxAgentInvestigate() { playTone(560, 'sine', 0.1, 0.12); }
+function sfxSafeOrAgentMiss()    {
+  // Descending "wah-wah" — disappointing but not alarming
+  playTone(330, 'triangle', 0.18, 0.2);
+  setTimeout(() => playTone(262, 'triangle', 0.22, 0.28), 130);
+}
+function sfxWrong()       { playTone(180, 'sawtooth', 0.22, 0.25); }
+function sfxLoseLife()    {
+  playTone(220, 'sawtooth', 0.15, 0.3);
+  setTimeout(() => playTone(160, 'sawtooth', 0.25, 0.3), 120);
+}
+function sfxCombo()       { playTone(880, 'sine', 0.18, 0.22); }
+function sfxLifeRegain()  {
+  playTone(523, 'sine', 0.1, 0.2);
+  setTimeout(() => playTone(659, 'sine', 0.1, 0.2), 90);
+  setTimeout(() => playTone(784, 'sine', 0.2, 0.25), 180);
+}
+function sfxPowerup()     {
+  playTone(440, 'sine', 0.08, 0.15);
+  setTimeout(() => playTone(554, 'sine', 0.08, 0.15), 70);
+  setTimeout(() => playTone(659, 'sine', 0.15, 0.2), 140);
+}
+function sfxLevelUp()     {
+  [523,659,784,1047].forEach((f,i) => setTimeout(() => playTone(f, 'sine', 0.18, 0.2), i*80));
+}
+function sfxGameOver()    {
+  [440,370,311,261].forEach((f,i) => setTimeout(() => playTone(f, 'sawtooth', 0.3, 0.3), i*120));
+}
+
+document.getElementById('btn-mute').addEventListener('click', () => {
+  soundEnabled = !soundEnabled;
+  document.getElementById('btn-mute').textContent = soundEnabled ? '🔊' : '🔇';
+});
+
+// ─────────────────────────────────────────────
+// PER-LEVEL STATS
+// ─────────────────────────────────────────────
+let levelStats = { correct: 0, missedThreats: 0, falseAlarms: 0 };
+
+function resetLevelStats() {
+  levelStats = { correct: 0, missedThreats: 0, falseAlarms: 0 };
+}
+
+// ─────────────────────────────────────────────
 // SCREEN MANAGEMENT
 // ─────────────────────────────────────────────
 function showScreen(id) {
@@ -717,11 +874,12 @@ function spawnCard(xOverride) {
   if (slowMoActive) fallDur *= 2.2;
 
   const el = document.createElement('div');
-  el.className = `card ${data.label}`;
+  el.className = `card ${data.label} spawning`;
   el.textContent = data.icon;
   el.style.left = clampedX + 'px';
   el.style.top = '-100px';
   el.style.zIndex = 10;
+  setTimeout(() => el.classList.remove('spawning'), 200);
 
   // Gold card gets a "TAP ME!" callout label
   if (data.isGold) {
@@ -831,17 +989,30 @@ function resolveSwipe(card, dir, agentSwipe = false) {
   const pts = card.data.points;
 
   if (correct) {
+    levelStats.correct++;
     if (!agentSwipe) {
       // Only player swipes count toward combo
       combo++;
       if (combo > 0 && combo % 5 === 0) {
         comboMult = Math.min(4, 1 + Math.floor(combo / 5) * 0.5);
+        sfxCombo();
+        showComboBurst(`🔥 x${comboMult.toFixed(1)}`);
       }
       if (combo === 10 && agentCharges < 3) {
         agentCharges = Math.min(3, agentCharges + 1);
         updateAgentChargesUI();
         showScorePopup(card.el, '🤖 +AGENT', '#fde68a');
+        sfxPowerup();
       }
+      // Regain a life every 20 combo
+      if (combo > 0 && combo % 20 === 0) {
+        tryRegainLife();
+      }
+      // Sound for correct player swipe
+      if (dir === 'left') sfxDismiss(); else sfxInvestigate();
+    } else {
+      // Agent swipe sounds — slightly quieter/different pitch to distinguish
+      if (dir === 'left') sfxAgentDismiss(); else sfxAgentInvestigate();
     }
     const gained = Math.round(pts * (agentSwipe ? 1 : comboMult));
     score += gained;
@@ -855,16 +1026,20 @@ function resolveSwipe(card, dir, agentSwipe = false) {
       if (isThreat) {
         // Dismissed a threat — lose a life
         lives--;
+        levelStats.missedThreats++;
         flashMiss();
+        sfxLoseLife();
         showScorePopup(card.el, '💔', '#ef4444');
         animateCardOut(card, dir, true);
         if (lives <= 0) { updateUI(); setTimeout(gameOver, 600); }
       } else {
         // Investigated a safe card — point deduction, no life lost
         score = Math.max(0, score - 100);
+        levelStats.falseAlarms++;
         showScorePopup(card.el, '-100', '#f97316');
         animateCardOut(card, dir, true);
         flashMiss();
+        sfxWrong();
       }
     }
   }
@@ -877,6 +1052,7 @@ function collectPowerup(card) {
   card.swiped = true;
   agentCharges = Math.min(3, agentCharges + 1);
   updateAgentChargesUI();
+  sfxPowerup();
   showScorePopup(card.el, '🤖 +1 AGENT', '#fde68a');
   // Flash agent zone to draw attention to it
   const az = document.getElementById('agent-zone');
@@ -1204,11 +1380,14 @@ function updateAgentChargesUI() {
   const az = document.getElementById('agent-zone');
   az.classList.toggle('has-charges', hasCharges);
   az.style.opacity = canActivate || isActive ? '1' : '0.35';
-  az.style.pointerEvents = canActivate ? 'auto' : 'none';
+  az.style.pointerEvents = 'auto'; // always tappable; activation guard is in the click handler
 }
 
-agentIcon.addEventListener('click', () => {
-  if (agentCharges > 0) activateAgent();
+document.getElementById('agent-zone').addEventListener('click', () => {
+  if (state !== 'PLAYING') return;
+  const config = getLevelConfig(level);
+  const allColsCovered = activeAgents.length >= config.maxCards;
+  if (agentCharges > 0 && !allColsCovered) activateAgent();
 });
 
 // ─────────────────────────────────────────────
@@ -1223,6 +1402,7 @@ function cardMissed(card) {
 
   if (isGold) {
     // Gold card slips through — no penalty, just disappear
+    sfxSafeOrAgentMiss();
     setTimeout(() => card.el.remove(), 100);
     removeCard(card);
     return;
@@ -1233,13 +1413,16 @@ function cardMissed(card) {
     lives--;
     combo = 0;
     comboMult = 1;
+    levelStats.missedThreats++;
     flashMiss();
+    sfxLoseLife();
     showScorePopup(card.el, '💔', '#ef4444');
     if (lives <= 0) setTimeout(gameOver, 400);
   } else {
     // Safe card reached the bottom — 0 pts, no life lost
     combo = 0;
     comboMult = 1;
+    sfxSafeOrAgentMiss();
     showScorePopup(card.el, '0', '#94a3b8');
   }
 
@@ -1256,6 +1439,29 @@ function flashMiss() {
 function removeCard(card) {
   const idx = cards.indexOf(card);
   if (idx > -1) cards.splice(idx, 1);
+}
+
+function showComboBurst(label) {
+  const el = document.getElementById('combo-burst');
+  const txt = document.getElementById('combo-burst-text');
+  txt.textContent = label;
+  el.classList.remove('show');
+  void el.offsetWidth; // reflow to restart animation
+  el.classList.add('show');
+}
+
+function tryRegainLife() {
+  if (lives >= 3) return;
+  lives = Math.min(3, lives + 1);
+  sfxLifeRegain();
+  // Show floating heart at top of arena
+  const pop = document.createElement('div');
+  pop.className = 'life-regain-popup';
+  pop.textContent = '❤️ +1 LIFE';
+  pop.style.top = '30%';
+  arena.appendChild(pop);
+  setTimeout(() => pop.remove(), 1200);
+  updateUI();
 }
 
 // ─────────────────────────────────────────────
@@ -1320,6 +1526,12 @@ function gameLoop(ts) {
       card.el.style.transform = '';
     }
 
+    // Near-miss: threat card in bottom 25% of arena gets red flash (non-gold, non-protected only)
+    const isThreat = card.data.correct === 'investigate';
+    const isProtected = card.el.classList.contains('agent-protected');
+    const nearMiss = isThreat && !card.data.isGold && !isProtected && newY > arenaH * 0.75;
+    card.el.classList.toggle('near-miss', nearMiss);
+
     // Expired
     if (newY > arenaH + 10 && !card.swiped) {
       cardMissed(card);
@@ -1365,9 +1577,28 @@ function doLevelComplete() {
   [...cards].forEach(c => { if (!c.swiped) { c.swiped = true; c.el.remove(); } });
   cards = [];
 
+  sfxLevelUp();
+
   const gained = score - levelStartScore;
+  const total = levelStats.correct + levelStats.missedThreats + levelStats.falseAlarms;
+  const accuracy = total > 0 ? Math.round((levelStats.correct / total) * 100) : 100;
+
   document.getElementById('levelup-text').textContent = `LEVEL ${level} ✓`;
   document.getElementById('levelup-score').textContent = `+${gained.toLocaleString()} pts`;
+
+  document.getElementById('lbd-correct').textContent = levelStats.correct;
+  document.getElementById('lbd-correct').className = 'lbd-val good';
+
+  document.getElementById('lbd-missed').textContent = levelStats.missedThreats;
+  document.getElementById('lbd-missed').className = `lbd-val ${levelStats.missedThreats > 0 ? 'bad' : 'good'}`;
+
+  document.getElementById('lbd-false').textContent = levelStats.falseAlarms;
+  document.getElementById('lbd-false').className = `lbd-val ${levelStats.falseAlarms > 0 ? 'warn' : 'good'}`;
+
+  const accEl = document.getElementById('lbd-accuracy');
+  accEl.textContent = accuracy + '%';
+  accEl.className = `lbd-val ${accuracy >= 90 ? 'good' : accuracy >= 70 ? 'warn' : 'bad'}`;
+
   showScreen('levelup');
   state = 'LEVEL_COMPLETE';
 
@@ -1378,6 +1609,7 @@ function doLevelComplete() {
     spawnTimer = 800;
     levelTransitioning = false;
     stormMode = level >= 10;
+    resetLevelStats();
     showScreen('game');
     state = 'PLAYING';
     updateUI();
@@ -1390,6 +1622,7 @@ function doLevelComplete() {
 // ─────────────────────────────────────────────
 function gameOver() {
   state = 'GAMEOVER';
+  sfxGameOver();
   [...cards].forEach(c => { c.swiped = true; c.el.remove(); });
   cards = [];
 
@@ -1424,6 +1657,7 @@ function startGame() {
   levelTimer = 30000; spawnTimer = 800;
   levelStartScore = 0; tutorialCount = 0;
   levelTransitioning = false; stormMode = false;
+  resetLevelStats();
   [...cards].forEach(c => c.el.remove());
   cards = [];
   clearAllAgents();
