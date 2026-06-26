@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390px, initial-scale=1">
+<title>Signal/Noise – Mockup</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0e1a;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    font-family: 'Courier New', monospace;
+  }
+
+  .phone {
+    width: 390px;
+    min-height: 844px;
+    background: #0a0e1a;
+    position: relative;
+    overflow: hidden;
+    border: 2px solid #1e2a40;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid #1e2a40;
+    background: #0d1220;
+  }
+  .header .logo {
+    font-size: 18px;
+    font-weight: bold;
+    color: #fff;
+    letter-spacing: 1px;
+  }
+  .header .logo span { color: #f97316; }
+  .stats {
+    display: flex;
+    gap: 18px;
+    font-size: 12px;
+  }
+  .stat { text-align: center; }
+  .stat .label { color: #4a6080; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+  .stat .value { color: #e2e8f0; font-size: 16px; font-weight: bold; margin-top: 1px; }
+  .stat .value.orange { color: #f97316; }
+  .stat .value.green { color: #22d3a0; }
+
+  /* Combo bar */
+  .combo-bar-wrap {
+    padding: 8px 16px 6px;
+    background: #0d1220;
+  }
+  .combo-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #4a6080;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .combo-label .combo-val { color: #f97316; font-weight: bold; }
+  .combo-track {
+    height: 4px;
+    background: #1e2a40;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .combo-fill {
+    height: 100%;
+    width: 55%;
+    background: linear-gradient(90deg, #f97316, #fbbf24);
+    border-radius: 2px;
+  }
+
+  /* Event stream */
+  .stream {
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    flex: 1;
+  }
+
+  .event {
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 11px;
+    line-height: 1.5;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    border: 1px solid transparent;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .event .icon {
+    font-size: 18px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .event .body { flex: 1; min-width: 0; }
+  .event .source {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+  }
+  .event .message { color: #c8d5e8; word-break: break-all; }
+  .event .meta {
+    font-size: 9px;
+    color: #4a6080;
+    margin-top: 3px;
+  }
+
+  /* Noise events – muted */
+  .event.noise {
+    background: #111827;
+    border-color: #1e2a40;
+  }
+  .event.noise .source { color: #3b506e; }
+
+  /* Signal events – highlighted */
+  .event.signal {
+    background: #12203a;
+    border-color: #f97316;
+    box-shadow: 0 0 10px rgba(249,115,22,0.15);
+  }
+  .event.signal .source { color: #f97316; }
+
+  /* Tapped/correct */
+  .event.tapped {
+    background: #0d2e1e;
+    border-color: #22d3a0;
+    opacity: 0.6;
+  }
+  .event.tapped .source { color: #22d3a0; }
+
+  /* False positive */
+  .event.fp {
+    background: #2a1010;
+    border-color: #ef4444;
+    opacity: 0.6;
+  }
+
+  /* Easter egg */
+  .event.easter {
+    background: #1a1040;
+    border-color: #a78bfa;
+    box-shadow: 0 0 12px rgba(167,139,250,0.2);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .event.easter .source { color: #a78bfa; }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(167,139,250,0.2); }
+    50% { box-shadow: 0 0 18px rgba(167,139,250,0.5); }
+  }
+
+  /* Check/X overlays */
+  .tap-result {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 20px;
+  }
+
+  /* Wave alert banner */
+  .wave-banner {
+    margin: 0 12px 6px;
+    background: #1a0a00;
+    border: 1px solid #f97316;
+    border-radius: 8px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    color: #f97316;
+  }
+  .wave-banner .wb-icon { font-size: 18px; }
+  .wave-banner strong { display: block; font-size: 12px; }
+  .wave-banner span { color: #c8833a; font-size: 10px; }
+
+  /* Bottom action strip */
+  .action-strip {
+    padding: 10px 16px 24px;
+    border-top: 1px solid #1e2a40;
+    background: #0d1220;
+  }
+  .action-hint {
+    text-align: center;
+    font-size: 10px;
+    color: #2e4060;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+  .tap-zone {
+    display: flex;
+    gap: 10px;
+  }
+  .btn {
+    flex: 1;
+    border-radius: 10px;
+    padding: 14px;
+    font-size: 13px;
+    font-weight: bold;
+    text-align: center;
+    letter-spacing: 0.5px;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .btn-signal {
+    background: linear-gradient(135deg, #f97316, #ea580c);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(249,115,22,0.35);
+  }
+  .btn-noise {
+    background: #1e2a40;
+    color: #4a6080;
+  }
+
+  /* Score popup */
+  .score-pop {
+    position: absolute;
+    font-size: 20px;
+    font-weight: bold;
+    color: #22d3a0;
+    pointer-events: none;
+    animation: floatUp 1s ease-out forwards;
+    text-shadow: 0 0 10px rgba(34,211,160,0.5);
+  }
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-40px); }
+  }
+
+  .score-pop.neg { color: #ef4444; }
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">SIGNAL<span>/</span>NOISE</div>
+    <div class="stats">
+      <div class="stat">
+        <div class="label">Score</div>
+        <div class="value orange">12,480</div>
+      </div>
+      <div class="stat">
+        <div class="label">Streak</div>
+        <div class="value">🔥 7</div>
+      </div>
+      <div class="stat">
+        <div class="label">Level</div>
+        <div class="value green">4</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Combo bar -->
+  <div class="combo-bar-wrap">
+    <div class="combo-label">
+      <span>Combo Multiplier</span>
+      <span class="combo-val">x2.5</span>
+    </div>
+    <div class="combo-track"><div class="combo-fill"></div></div>
+  </div>
+
+  <!-- Wave alert -->
+  <div class="wave-banner">
+    <div class="wb-icon">⚡</div>
+    <div>
+      <strong>Alert Storm incoming</strong>
+      <span>Duplicate suppression required — tap wisely</span>
+    </div>
+  </div>
+
+  <!-- Event stream -->
+  <div class="stream">
+
+    <!-- Tapped correctly -->
+    <div class="event tapped">
+      <div class="icon">✅</div>
+      <div class="body">
+        <div class="source">host-prod-04 · metrics</div>
+        <div class="message">cpu.usage=98.7% sustained &gt;60s — p99 latency degrading</div>
+        <div class="meta">2026-06-26T09:14:32Z · +250 pts</div>
+      </div>
+    </div>
+
+    <!-- Noise dismissed -->
+    <div class="event noise">
+      <div class="icon">🔇</div>
+      <div class="body">
+        <div class="source">loadbalancer-01 · access_log</div>
+        <div class="message">GET /healthcheck HTTP/1.1 200 0ms</div>
+        <div class="meta">2026-06-26T09:14:33Z</div>
+      </div>
+    </div>
+
+    <!-- Active signal to tap -->
+    <div class="event signal">
+      <div class="icon">⚠️</div>
+      <div class="body">
+        <div class="source">auth-svc · audit_log</div>
+        <div class="message">login_failure user=admin src=185.220.101.34 attempts=47 in 3s</div>
+        <div class="meta">2026-06-26T09:14:35Z</div>
+      </div>
+    </div>
+
+    <!-- Noise -->
+    <div class="event noise">
+      <div class="icon">🔇</div>
+      <div class="body">
+        <div class="source">cron-worker · stdout</div>
+        <div class="message">backup job completed successfully — 0 errors</div>
+        <div class="meta">2026-06-26T09:14:36Z</div>
+      </div>
+    </div>
+
+    <!-- Easter egg event -->
+    <div class="event easter">
+      <div class="icon">🫖</div>
+      <div class="body">
+        <div class="source">api-gateway · http_log</div>
+        <div class="message">HTTP/1.1 <strong style="color:#a78bfa">418 I'm a teapot</strong> — unexpected brew request detected</div>
+        <div class="meta">2026-06-26T09:14:37Z · ??? pts</div>
+      </div>
+    </div>
+
+    <!-- Another noise -->
+    <div class="event noise">
+      <div class="icon">🔇</div>
+      <div class="body">
+        <div class="source">db-replica-02 · slow_query</div>
+        <div class="message">SELECT * FROM sessions WHERE expires_at &lt; NOW() — 12ms</div>
+        <div class="meta">2026-06-26T09:14:38Z</div>
+      </div>
+    </div>
+
+    <!-- Signal about to scroll off -->
+    <div class="event signal" style="opacity:0.5; border-color: #ef4444;">
+      <div class="icon">⏳</div>
+      <div class="body">
+        <div class="source">k8s-node-07 · events</div>
+        <div class="message">OOMKilled: container memory-hog exceeded 2Gi limit — pod evicted</div>
+        <div class="meta">EXPIRING SOON — tap now!</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Action strip -->
+  <div class="action-strip">
+    <div class="action-hint">Is the highlighted event signal or noise?</div>
+    <div class="tap-zone">
+      <button class="btn btn-signal">⚡ SIGNAL</button>
+      <button class="btn btn-noise">🔇 NOISE</button>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
