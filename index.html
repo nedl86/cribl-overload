@@ -508,6 +508,45 @@
   .lbd-row .lbd-val.warn { color: var(--orange); }
   .lbd-row .lbd-val.bad  { color: var(--red); }
 
+  /* Orchestration mode splash */
+  #screen-orchestration {
+    background: rgba(10,14,26,0.97);
+    gap: 16px; z-index: 60; padding: 40px 28px;
+    text-align: center;
+  }
+  .orch-badge {
+    font-size: 11px; font-weight: bold; letter-spacing: 3px;
+    text-transform: uppercase; color: var(--gold);
+    background: rgba(253,230,138,0.1); border: 1px solid rgba(253,230,138,0.3);
+    border-radius: 20px; padding: 4px 14px;
+  }
+  .orch-title {
+    font-size: 28px; font-weight: 900; color: #fff;
+    letter-spacing: 2px; line-height: 1.2;
+  }
+  .orch-title span { color: var(--gold); }
+  .orch-body {
+    font-size: 14px; color: #94a3b8; line-height: 1.7;
+    max-width: 300px;
+  }
+  .orch-body strong { color: #e2e8f0; }
+  .orch-icon { font-size: 56px; }
+  @keyframes orchPulse {
+    0%,100% { text-shadow: 0 0 20px rgba(253,230,138,0.4); }
+    50%      { text-shadow: 0 0 50px rgba(253,230,138,0.9); }
+  }
+  .orch-icon { animation: orchPulse 1.2s ease-in-out infinite; }
+
+  /* Jump to L10 debug button */
+  .btn-jump {
+    font-size: 11px; color: #3b506e; background: transparent;
+    border: 1px dashed #1e2a40; border-radius: 8px;
+    padding: 6px 14px; cursor: pointer; font-family: inherit;
+    letter-spacing: 1px; text-transform: uppercase;
+    margin-top: -8px;
+  }
+  .btn-jump:active { color: #94a3b8; border-color: #4a6080; }
+
   /* Life regain popup */
   @keyframes lifeRegain {
     0%   { opacity: 0; transform: translateY(20px) scale(0.8); }
@@ -533,6 +572,18 @@
     <div class="start-icons">💀 ❓ 🔒 🚨 ☁️</div>
 
     <button class="btn-start" id="btn-start">START</button>
+    <button class="btn-jump" id="btn-jump-l10">JUMP TO L10</button>
+  </div>
+
+  <!-- ORCHESTRATION MODE SPLASH -->
+  <div id="screen-orchestration" class="screen">
+    <div class="orch-badge">LEVEL 10 UNLOCKED</div>
+    <div class="orch-icon">🤖</div>
+    <div class="orch-title">AGENT<br><span>ORCHESTRATION</span></div>
+    <div class="orch-body">
+      Agents are now <strong>auto-deployed</strong> the moment they're available.<br><br>
+      <strong>Catch every gold card.</strong> That's all that stands between you and overload.
+    </div>
   </div>
 
   <!-- HOW TO PLAY SCREEN -->
@@ -714,7 +765,6 @@ let lastTime = 0;
 let frameId = null;
 let spawnTimer = 0;
 let levelTransitioning = false;
-let stormMode = false;
 
 // ─────────────────────────────────────────────
 // DOM REFS
@@ -831,7 +881,10 @@ function getLevelConfig(lvl) {
 // ─────────────────────────────────────────────
 function pickCardType(config) {
   // Golden powerup check — probability scales up with level so higher levels stay playable
-  const goldChance = Math.min(0.03 + (level - 1) * 0.012, 0.18);
+  // At level 10+ gold cards are the primary survival mechanic — spawn them much more freely
+  const goldChance = level >= 10
+    ? Math.min(0.30 + (level - 10) * 0.02, 0.50)
+    : Math.min(0.03 + (level - 1) * 0.012, 0.18);
   if (Math.random() < goldChance && agentCharges < 3) {
     return { icon: '🤖', label: 'gold', correct: 'up', points: 0, isGold: true };
   }
@@ -1285,6 +1338,11 @@ function agentTick(dt) {
   const arenaW = arena.offsetWidth;
   const colW = arenaW / cols;
 
+  // Level 10+: auto-deploy agents whenever charges are available and a column is free
+  if (level >= 10 && agentCharges > 0 && activeAgents.length < cols) {
+    activateAgent();
+  }
+
   // Tick each agent
   for (const agent of [...activeAgents]) {
     agent.timer -= dt;
@@ -1295,23 +1353,19 @@ function agentTick(dt) {
       continue;
     }
 
-    if (level <= 9) {
-      const actionable = cards.filter(c => {
-        if (c.swiped || c._agentQueued || c.data.isGold) return false;
-        if (c.y < 0) return false; // act as soon as card enters the arena
-        const cardCol = Math.min(cols - 1, Math.max(0, Math.floor((c.x + 45) / colW)));
-        return cols <= 1 || cardCol === agent.col;
-      });
-      actionable.forEach((c, i) => {
-        c._agentQueued = true;
-        const dir = (c.data.correct === 'investigate') ? 'right' : 'left';
-        // Very quick — agent acts almost immediately, staggered by 180ms per card
-        setTimeout(() => { if (!c.swiped) autoSwipeCard(c, dir); }, 80 + i * 180);
-      });
-    } else {
-      cards.filter(c => !c.swiped && !c._hinted && c.data.label === 'red')
-        .forEach(c => { c._hinted = true; c.el.classList.add('hint-glow'); });
-    }
+    const actionable = cards.filter(c => {
+      if (c.swiped || c._agentQueued || c.data.isGold) return false;
+      if (c.y < 0) return false; // act as soon as card enters the arena
+      const cardCol = Math.min(cols - 1, Math.max(0, Math.floor((c.x + 45) / colW)));
+      return cols <= 1 || cardCol === agent.col;
+    });
+    actionable.forEach((c, i) => {
+      c._agentQueued = true;
+      const dir = (c.data.correct === 'investigate') ? 'right' : 'left';
+      // At high levels (short fall duration) act faster so cards don't slip through
+      const baseDelay = config.fallDuration < 1200 ? 40 : 80;
+      setTimeout(() => { if (!c.swiped) autoSwipeCard(c, dir); }, baseDelay + i * 150);
+    });
   }
 
   if (activeAgents.length === 0) agentIcon.classList.remove('active');
@@ -1494,7 +1548,7 @@ function updateUI() {
   } else {
     comboBar.classList.add('hidden');
   }
-  stormOverlay.classList.toggle('active', level >= 10);
+  stormOverlay.classList.remove('active'); // storm mode replaced by orchestration at level 10+
 }
 
 // ─────────────────────────────────────────────
@@ -1608,12 +1662,24 @@ function doLevelComplete() {
     levelTimer = 30000;
     spawnTimer = 800;
     levelTransitioning = false;
-    stormMode = level >= 10;
     resetLevelStats();
-    showScreen('game');
-    state = 'PLAYING';
-    updateUI();
-    rebuildAgentOverlays();
+
+    if (level === 10) {
+      // Show orchestration splash before starting level 10
+      showScreen('orchestration');
+      state = 'ORCHESTRATION';
+      setTimeout(() => {
+        showScreen('game');
+        state = 'PLAYING';
+        updateUI();
+        rebuildAgentOverlays();
+      }, 3500);
+    } else {
+      showScreen('game');
+      state = 'PLAYING';
+      updateUI();
+      rebuildAgentOverlays();
+    }
   }, 2800);
 }
 
@@ -1656,7 +1722,7 @@ function startGame() {
   slowMoActive = false; slowMoTimer = 0;
   levelTimer = 30000; spawnTimer = 800;
   levelStartScore = 0; tutorialCount = 0;
-  levelTransitioning = false; stormMode = false;
+  levelTransitioning = false;
   resetLevelStats();
   [...cards].forEach(c => c.el.remove());
   cards = [];
@@ -1672,9 +1738,38 @@ function startGame() {
   frameId = requestAnimationFrame(gameLoop);
 }
 
+function startGameAtLevel(startLevel, startCharges = 0) {
+  score = 0; lives = 3; level = startLevel; combo = 0; comboMult = 1;
+  agentCharges = startCharges;
+  slowMoActive = false; slowMoTimer = 0;
+  levelTimer = 30000; spawnTimer = 800;
+  levelStartScore = 0; tutorialCount = 0;
+  levelTransitioning = false;
+  resetLevelStats();
+  [...cards].forEach(c => c.el.remove());
+  cards = [];
+  clearAllAgents();
+  slowmoOverlay.classList.remove('active');
+  stormOverlay.classList.remove('active');
+  updateAgentChargesUI();
+  updateUI();
+  showScreen('game');
+  state = 'PLAYING';
+  lastTime = performance.now();
+  if (frameId) cancelAnimationFrame(frameId);
+  frameId = requestAnimationFrame(gameLoop);
+}
+
+function startGame() { startGameAtLevel(1, 0); }
+
 document.getElementById('btn-start').addEventListener('click', () => showScreen('howtoplay'));
 document.getElementById('btn-howtoplay-go').addEventListener('click', startGame);
 document.getElementById('btn-replay').addEventListener('click', startGame);
+document.getElementById('btn-jump-l10').addEventListener('click', () => {
+  // Show orchestration splash first, then jump straight in
+  showScreen('orchestration');
+  setTimeout(() => startGameAtLevel(10, 3), 3500);
+});
 
 function goHome() {
   state = 'MENU';
