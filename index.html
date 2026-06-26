@@ -889,7 +889,7 @@ function pickCardType(config) {
   // At L10+ a perfect player must be able to sustain coverage:
   // 3 columns × 15s agents = need 1 charge per 5s. Cooldown of 3.5s gives a slim but real
   // survival margin for accurate players; the difficulty is tapping fast-falling cards, not scarcity.
-  const goldCooldown = level >= 10 ? 3500 : 2000; // ms
+  const goldCooldown = level >= 10 ? 4000 : 2000; // ms — 4s gives a slim survival margin at L10+
   const now = performance.now();
   if (Math.random() < goldChance && agentCharges < 3 && (now - lastGoldSpawnTime) > goldCooldown) {
     lastGoldSpawnTime = now;
@@ -931,7 +931,8 @@ function spawnCard(xOverride) {
   const clampedX = Math.max(8, Math.min(arenaW - cardSize - 8, x));
 
   let fallDur = config.fallDuration;
-  if (slowMoActive) fallDur *= 2.2;
+  // Gold cards are never slowed — they're the primary challenge at L10+ and must fall at full speed
+  if (slowMoActive && !data.isGold) fallDur *= 2.2;
 
   const el = document.createElement('div');
   el.className = `card ${data.label} spawning`;
