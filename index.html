@@ -408,14 +408,6 @@
     100% { transform: translateY(-80px) scale(0.5); opacity: 0; }
   }
 
-  /* Slow-mo vignette */
-  #slowmo-overlay {
-    position: absolute; inset: 0;
-    background: radial-gradient(ellipse at center, transparent 50%, rgba(14,165,233,0.15) 100%);
-    pointer-events: none; z-index: 3;
-    opacity: 0; transition: opacity 0.5s;
-  }
-  #slowmo-overlay.active { opacity: 1; }
 
   /* Agent running label inside protected column */
   .agent-col-label {
@@ -669,7 +661,6 @@
     <div id="arena">
       <div id="miss-flash"></div>
       <div id="storm-overlay"></div>
-      <div id="slowmo-overlay"></div>
       <div id="combo-burst"><div id="combo-burst-text"></div></div>
       <!-- agent column overlays injected here by JS -->
     </div>
@@ -755,8 +746,6 @@ let level = 1;
 let combo = 0;
 let comboMult = 1;
 let agentCharges = 0;
-let slowMoActive = false;
-let slowMoTimer = 0;
 let cards = [];
 let levelTimer = 0;
 let levelStartScore = 0;
@@ -778,7 +767,6 @@ const livesEl = document.getElementById('lives-display');
 const comboBar = document.getElementById('combo-bar');
 const agentIcon = document.getElementById('agent-icon');
 const stormOverlay = document.getElementById('storm-overlay');
-const slowmoOverlay = document.getElementById('slowmo-overlay');
 const missFlash = document.getElementById('miss-flash');
 
 // ─────────────────────────────────────────────
@@ -930,9 +918,7 @@ function spawnCard(xOverride) {
   const x = slotW * col + slotW / 2 - cardSize / 2 + (Math.random() * 10 - 5);
   const clampedX = Math.max(8, Math.min(arenaW - cardSize - 8, x));
 
-  let fallDur = config.fallDuration;
-  // Gold cards are never slowed — they're the primary challenge at L10+ and must fall at full speed
-  if (slowMoActive && !data.isGold) fallDur *= 2.2;
+  const fallDur = config.fallDuration;
 
   const el = document.createElement('div');
   el.className = `card ${data.label} spawning`;
@@ -1317,12 +1303,6 @@ function activateAgent() {
   setColTimerProgress(agent, 1);
   updateAllCardDim();
 
-  if (level >= 10) {
-    slowMoActive = true;
-    slowMoTimer = 5000;
-    slowmoOverlay.classList.add('active');
-    cards.forEach(c => { if (!c.swiped) c.fallDur *= 2.2; });
-  }
 }
 
 function agentTick(dt) {
@@ -1332,14 +1312,6 @@ function agentTick(dt) {
   }
 
   agentIcon.classList.add('active');
-
-  if (slowMoActive) {
-    slowMoTimer -= dt;
-    if (slowMoTimer <= 0) {
-      slowMoActive = false;
-      slowmoOverlay.classList.remove('active');
-    }
-  }
 
   const config = getLevelConfig(level);
   const cols = config.maxCards;
@@ -1728,7 +1700,6 @@ function startGame() {
   // Clear all game state except leaderboard
   score = 0; lives = 3; level = 1; combo = 0; comboMult = 1;
   agentCharges = 0;
-  slowMoActive = false; slowMoTimer = 0;
   levelTimer = 30000; spawnTimer = 800;
   levelStartScore = 0; tutorialCount = 0;
   levelTransitioning = false;
@@ -1737,7 +1708,6 @@ function startGame() {
   [...cards].forEach(c => c.el.remove());
   cards = [];
   clearAllAgents();
-  slowmoOverlay.classList.remove('active');
   stormOverlay.classList.remove('active');
   updateAgentChargesUI();
   updateUI();
@@ -1751,7 +1721,6 @@ function startGame() {
 function startGameAtLevel(startLevel, startCharges = 0) {
   score = 0; lives = 3; level = startLevel; combo = 0; comboMult = 1;
   agentCharges = startCharges;
-  slowMoActive = false; slowMoTimer = 0;
   levelTimer = 30000; spawnTimer = 800;
   levelStartScore = 0; tutorialCount = 0;
   levelTransitioning = false;
@@ -1760,7 +1729,6 @@ function startGameAtLevel(startLevel, startCharges = 0) {
   [...cards].forEach(c => c.el.remove());
   cards = [];
   clearAllAgents();
-  slowmoOverlay.classList.remove('active');
   stormOverlay.classList.remove('active');
   updateAgentChargesUI();
   updateUI();
@@ -1800,7 +1768,6 @@ function goHome() {
   [...cards].forEach(c => { c.swiped = true; c.el.remove(); });
   cards = [];
   clearAllAgents();
-  slowmoOverlay.classList.remove('active');
   stormOverlay.classList.remove('active');
   showScreen('start');
 }
