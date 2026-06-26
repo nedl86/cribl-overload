@@ -862,7 +862,10 @@ function getLevelConfig(lvl) {
   if (lvl === 3) return { fallDuration: 2200, spawnInterval: 900,  maxCards: 2, greenWeight: 3, redWeight: 3, purpleWeight: 2 };
   if (lvl <= 6)  return { fallDuration: 1800, spawnInterval: 750,  maxCards: 2, greenWeight: 2, redWeight: 3, purpleWeight: 3 };
   if (lvl <= 9)  return { fallDuration: 1400, spawnInterval: 600,  maxCards: 3, greenWeight: 2, redWeight: 3, purpleWeight: 3 };
-  return         { fallDuration: 950,  spawnInterval: 450,  maxCards: 3, greenWeight: 1, redWeight: 4, purpleWeight: 3 };
+  // L10+: keep accelerating — fallDuration drops 30ms per level, spawnInterval drops 10ms per level
+  const fallDuration   = Math.max(950 - (lvl - 10) * 30, 350);   // floor 350ms (~L30)
+  const spawnInterval  = Math.max(450 - (lvl - 10) * 10, 250);   // floor 250ms (~L30)
+  return { fallDuration, spawnInterval, maxCards: 3, greenWeight: 1, redWeight: 4, purpleWeight: 3 };
 }
 
 // ─────────────────────────────────────────────
