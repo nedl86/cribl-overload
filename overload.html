@@ -457,38 +457,72 @@
     <div class="start-sub">Find the signal.</div>
     <div class="start-icons">💀 ❓ 🔒 🚨 ☁️</div>
 
-    <div class="how-to-play">
-      <div class="htp-title">How to play</div>
-      <div class="htp-row">
-        <div class="htp-icon">🗑️</div>
-        <div class="htp-text">Tap <strong>Dismiss</strong> for safe events</div>
-      </div>
-      <div class="htp-row">
-        <div class="htp-icon">🔍</div>
-        <div class="htp-text">Tap <strong>Investigate</strong> for threats</div>
-      </div>
-      <div class="htp-divider"></div>
-      <div class="htp-title" style="margin-top:2px;">Card colours</div>
-      <div class="htp-row">
-        <div class="htp-icon" style="font-size:18px;">🟢</div>
-        <div class="htp-text"><strong style="color:#22d3a0;">Green</strong> — always safe. Dismiss it.</div>
-      </div>
-      <div class="htp-row">
-        <div class="htp-icon" style="font-size:18px;">🔴</div>
-        <div class="htp-text"><strong style="color:#ef4444;">Red</strong> — always a threat. Investigate it.</div>
-      </div>
-      <div class="htp-row">
-        <div class="htp-icon" style="font-size:18px;">🟣</div>
-        <div class="htp-text"><strong style="color:#a78bfa;">Purple</strong> — ambiguous. Read the icon carefully.</div>
-      </div>
-      <div class="htp-divider"></div>
-      <div class="htp-row powerup-row">
-        <div class="htp-icon">🤖</div>
-        <div class="htp-text"><strong>Tap the gold card directly</strong> to collect an AI Agent power-up — it will automatically help sort cards for you</div>
-      </div>
-    </div>
-
     <button class="btn-start" id="btn-start">START</button>
+  </div>
+
+  <!-- HOW TO PLAY SCREEN -->
+  <div id="screen-howtoplay" class="screen">
+    <div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:18px;padding:28px 20px 24px;overflow-y:auto;">
+      <div class="start-logo" style="font-size:26px;margin-bottom:-4px;">HOW TO PLAY</div>
+
+      <div class="how-to-play" style="gap:12px;">
+        <div class="htp-title">The basics</div>
+        <div class="htp-row">
+          <div class="htp-icon">🗑️</div>
+          <div class="htp-text">Tap <strong>Dismiss</strong> for safe events.</div>
+        </div>
+        <div class="htp-row">
+          <div class="htp-icon">🔍</div>
+          <div class="htp-text">Tap <strong>Investigate</strong> for threats.</div>
+        </div>
+
+        <div class="htp-divider"></div>
+        <div class="htp-title">Card colours</div>
+
+        <!-- Green card preview -->
+        <div class="htp-row" style="align-items:center;">
+          <div class="htp-icon" style="width:40px;height:40px;border-radius:10px;background:#0d2e1e;border:2px solid #22d3a0;box-shadow:0 0 8px rgba(34,211,160,0.25);flex-shrink:0;"></div>
+          <div class="htp-text"><strong style="color:#22d3a0;">Green</strong> — always safe. Dismiss it.</div>
+        </div>
+
+        <!-- Red card preview -->
+        <div class="htp-row" style="align-items:center;">
+          <div class="htp-icon" style="width:40px;height:40px;border-radius:10px;background:#2a1010;border:2px solid #ef4444;box-shadow:0 0 8px rgba(239,68,68,0.25);flex-shrink:0;"></div>
+          <div class="htp-text"><strong style="color:#ef4444;">Red</strong> — always a threat. Investigate it.</div>
+        </div>
+
+        <!-- Purple card previews (one safe, one threat) -->
+        <div class="htp-row" style="align-items:center;">
+          <div style="display:flex;gap:6px;flex-shrink:0;width:40px;justify-content:center;">
+            <div style="width:40px;height:40px;border-radius:10px;background:#1a0f35;border:2px solid #a78bfa;box-shadow:0 0 8px rgba(167,139,250,0.2);"></div>
+          </div>
+          <div class="htp-text" style="margin-left:12px;"><strong style="color:#a78bfa;">Purple</strong> — can be either. Check the icon carefully.</div>
+        </div>
+
+        <div class="htp-divider"></div>
+        <div class="htp-title">Lives &amp; scoring</div>
+        <div class="htp-row">
+          <div class="htp-icon">💔</div>
+          <div class="htp-text"><strong>Lose a life</strong> if a threat reaches the bottom, or if you dismiss a threat by mistake.</div>
+        </div>
+        <div class="htp-row">
+          <div class="htp-icon">⚠️</div>
+          <div class="htp-text"><strong>Point deduction</strong> if you investigate a safe event — false alarms waste time.</div>
+        </div>
+        <div class="htp-row">
+          <div class="htp-icon">🤦‍♂️</div>
+          <div class="htp-text">Safe events that reach the bottom score <strong>0 pts</strong> — no life lost, but also no points gained. What a waste!</div>
+        </div>
+
+        <div class="htp-divider"></div>
+        <div class="htp-row powerup-row">
+          <div class="htp-icon" style="animation:none!important;box-shadow:0 0 6px rgba(253,230,138,0.3)!important;">🤖</div>
+          <div class="htp-text"><strong>Tap the gold card directly</strong> to collect an AI Agent — once activated, it will automatically sort cards for you.</div>
+        </div>
+      </div>
+
+      <button class="btn-start" id="btn-howtoplay-go" style="margin-top:4px;">LET'S GO</button>
+    </div>
   </div>
 
   <!-- GAME SCREEN -->
@@ -817,10 +851,21 @@ function resolveSwipe(card, dir, agentSwipe = false) {
     if (!agentSwipe) {
       combo = 0;
       comboMult = 1;
-      score = Math.max(0, score - 50);
-      showScorePopup(card.el, '✗', '#ef4444');
-      animateCardOut(card, dir, true);
-      flashMiss();
+      const isThreat = card.data.correct === 'investigate';
+      if (isThreat) {
+        // Dismissed a threat — lose a life
+        lives--;
+        flashMiss();
+        showScorePopup(card.el, '💔', '#ef4444');
+        animateCardOut(card, dir, true);
+        if (lives <= 0) { updateUI(); setTimeout(gameOver, 600); }
+      } else {
+        // Investigated a safe card — point deduction, no life lost
+        score = Math.max(0, score - 100);
+        showScorePopup(card.el, '-100', '#f97316');
+        animateCardOut(card, dir, true);
+        flashMiss();
+      }
     }
   }
 
@@ -1172,15 +1217,35 @@ agentIcon.addEventListener('click', () => {
 function cardMissed(card) {
   if (card.swiped) return;
   card.swiped = true;
-  lives--;
-  combo = 0;
-  comboMult = 1;
-  flashMiss();
-  showScorePopup(card.el, '💔', '#ef4444');
+
+  const isThreat = card.data.correct === 'investigate';
+  const isGold   = card.data.isGold;
+
+  if (isGold) {
+    // Gold card slips through — no penalty, just disappear
+    setTimeout(() => card.el.remove(), 100);
+    removeCard(card);
+    return;
+  }
+
+  if (isThreat) {
+    // Threat reached the bottom — lose a life
+    lives--;
+    combo = 0;
+    comboMult = 1;
+    flashMiss();
+    showScorePopup(card.el, '💔', '#ef4444');
+    if (lives <= 0) setTimeout(gameOver, 400);
+  } else {
+    // Safe card reached the bottom — 0 pts, no life lost
+    combo = 0;
+    comboMult = 1;
+    showScorePopup(card.el, '0', '#94a3b8');
+  }
+
   setTimeout(() => card.el.remove(), 100);
   removeCard(card);
   updateUI();
-  if (lives <= 0) setTimeout(gameOver, 400);
 }
 
 function flashMiss() {
@@ -1373,7 +1438,8 @@ function startGame() {
   frameId = requestAnimationFrame(gameLoop);
 }
 
-document.getElementById('btn-start').addEventListener('click', startGame);
+document.getElementById('btn-start').addEventListener('click', () => showScreen('howtoplay'));
+document.getElementById('btn-howtoplay-go').addEventListener('click', startGame);
 document.getElementById('btn-replay').addEventListener('click', startGame);
 
 function goHome() {
